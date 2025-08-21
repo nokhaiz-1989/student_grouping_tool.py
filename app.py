@@ -3,6 +3,19 @@ import pandas as pd
 
 st.title("Student Assessment & Mixed Ability Grouping Tool")
 
+# ---- Instructions ----
+st.info(
+    """
+    📌 **Instructions for Uploading File**  
+    - Upload an **Excel (.xlsx)** file only.  
+    - The file must contain the following columns (in order):  
+      1. **ID** → Student ID (e.g., L24-8928)  
+      2. **Name** → Student’s Full Name  
+      3. **Score** → Marks between **0 and 100**  
+    - Example row: `L24-8928 | Ali Khan | 72`  
+    """
+)
+
 # ---- File Upload ----
 uploaded_file = st.file_uploader("Upload Excel file with Student Data", type=["xlsx"])
 
@@ -36,13 +49,13 @@ if uploaded_file:
         # ---- Table 1: Segmentation with Darker Colors ----
         def highlight_row(row):
             color_map = {
-                "Red": "background-color: #ff4d4d; color: black;",
-                "Orange": "background-color: #ffa64d; color: black;",
-                "Yellow": "background-color: #ffff66; color: black;",
-                "Blue": "background-color: #4da6ff; color: black;",
-                "Green": "background-color: #70db70; color: black;",
+                "Red": "background-color: #ff4d4d; color: black; text-align: center;",
+                "Orange": "background-color: #ffa64d; color: black; text-align: center;",
+                "Yellow": "background-color: #ffff66; color: black; text-align: center;",
+                "Blue": "background-color: #4da6ff; color: black; text-align: center;",
+                "Green": "background-color: #70db70; color: black; text-align: center;",
             }
-            return [color_map.get(row["Color"], "")] * len(row)
+            return [color_map.get(row["Color"], "text-align: center;")] * len(row)
 
         styled_df = (
             df.style
@@ -77,13 +90,13 @@ if uploaded_file:
         # ---- Table 2: Groups with Background Colors (no color text shown) ----
         def color_cells(val):
             color_map = {
-                "Red": "background-color: #ff9999; color: black;",
-                "Orange": "background-color: #ffcc99; color: black;",
-                "Yellow": "background-color: #ffffb3; color: black;",
-                "Blue": "background-color: #99ccff; color: black;",
-                "Green": "background-color: #b3ffb3; color: black;",
+                "Red": "background-color: #ff9999; color: black; text-align: center;",
+                "Orange": "background-color: #ffcc99; color: black; text-align: center;",
+                "Yellow": "background-color: #ffffb3; color: black; text-align: center;",
+                "Blue": "background-color: #99ccff; color: black; text-align: center;",
+                "Green": "background-color: #b3ffb3; color: black; text-align: center;",
             }
-            return color_map.get(val, "")
+            return color_map.get(val, "text-align: center;")
 
         styled_groups_df = (
             groups_df.drop(columns=["Color"])  # don't display color column
