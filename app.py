@@ -2,7 +2,37 @@ import streamlit as st
 import pandas as pd
 import random
 
-# Function to categorize students
+st.set_page_config(page_title="Student Grouping Tool", layout="wide")
+
+# -------------------------------
+# Instructions for the interface
+# -------------------------------
+st.title("🎓 Student Grouping Tool")
+st.markdown("""
+Welcome to the **Student Grouping Tool**!  
+Please follow the steps below to get started:
+
+1. 📂 **Upload an Excel file** containing student details with the following columns:
+   - `Student ID`
+   - `Name`
+   - `Score` (0–100)
+
+2. 📝 The system will automatically categorize students into:
+   - 🔴 Minimal  
+   - 🟠 Needs Improvement  
+   - 🟡 Developing  
+   - 🔵 Proficient  
+   - 🟢 Exemplary  
+
+3. 👥 The tool will form **mixed-ability groups** of **5 students each**, ensuring fair distribution.
+""")
+
+# -------------------------------
+# File upload
+# -------------------------------
+uploaded_file = st.file_uploader("📥 Upload your Excel file", type=["xlsx"])
+
+# Category & color assignment
 def categorize(score):
     if score <= 20:
         return "Minimal", "red"
@@ -15,62 +45,38 @@ def categorize(score):
     else:
         return "Exemplary", "green"
 
-# Streamlit UI
-st.title("🎓 Student Grouping Tool")
-st.write("Upload an Excel file with columns: **Student ID | Name | Score**. "
-         "The system will categorize students and create groups of 5 students each.")
-
-# File uploader
-uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx"])
-
 if uploaded_file:
     df = pd.read_excel(uploaded_file)
 
     # Categorize students
-    df[["Category", "Color"]] = df["Score"].apply(lambda x: pd.Series(categorize(x)))
+    df[["Category", "Color"]] = df["Score"].apply(lambda s: pd.Series(categorize(s)))
 
-    # Show categorized students table
-    st.subheader("📊 Categorized Students")
-    st.dataframe(df.style.set_properties(**{
-        "text-align": "center"
-    }).set_table_styles([{
-        "selector": "th",
-        "props": [("font-weight", "bold"), ("text-align", "center")]
-    }]).apply(lambda x: [f"background-color: {c}" for c in df["Color"]], axis=0))
+    st.subheader("📊 Uploaded Student Data with Categories")
+    styled_df = df.style.apply(lambda x: [f"background-color: {c}; text-align:center;" for c in df["Color"]], axis=0)
+    st.dataframe(styled_df, use_container_width=True)
 
-    # Create groups of 5 students ensuring mix
-    st.subheader("👥 Mixed-Ability Groups (5 Students Each)")
-
-    categories = df["Category"].unique()
-    grouped_students = {cat: df[df["Category"] == cat].to_dict("records") for cat in categories}
+    # -------------------------------
+    # Create Mixed Ability Groups
+    # -------------------------------
+    st.subheader("👥 Mixed Ability Groups")
 
     groups = []
-    group_number = 1
-    while any(grouped_students.values()):
-        group = []
-        for cat in categories:
-            if grouped_students[cat]:
-                group.append(grouped_students[cat].pop(0))
-            if len(group) == 5:
-                break
-        if group:
-            groups.append((f"Group {group_number}", group))
-            group_number += 1
+    group_size = 5
+    all_students = df.to_dict("records")
+    random.shuffle(all_students)
 
-    # Display groups
-    for group_name, members in groups:
+    # Create groups of 5
+    for i in range(0, len(all_students), group_size):
+        group_members = all_students[i:i + group_size]
+        group_df = pd.DataFrame(group_members)[["Student ID", "Name", "Score", "Category"]]
+        groups.append((f"Group {len(groups)+1}", group_df))
+
+    # Display groups separately with spacing
+    for group_name, group_df in groups:
         st.markdown(f"### {group_name}")
-        group_df = pd.DataFrame(members)[["Student ID", "Name", "Score", "Category"]]
-        st.dataframe(group_df.style.set_properties(**{
-            "text-align": "center"
-        }).set_table_styles([{
-            "selector": "th",
-            "props": [("font-weight", "bold"), ("text-align", "center")]
-        }]).apply(lambda x: [f"background-color: {c}" for c in group_df["Category"].map({
-            "Minimal": "red",
-            "Needs Improvement": "orange",
-            "Developing": "yellow",
-            "Proficient": "blue",
-            "Exemplary": "green"
-        })], axis=0))
-        st.markdown("---")
+        styled_group = group_df.style.apply(
+            lambda x: [f"background-color: {categorize(v)[1]}; text-align:center;" if x.name == "Category" else "" for v in x],
+            axis=0
+        )
+        st.dataframe(styled_group, use_container_width=True)
+        st.markdown("---")  # adds gap between groups
