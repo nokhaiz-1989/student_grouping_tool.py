@@ -1,106 +1,156 @@
 import streamlit as st
 import pandas as pd
-import random
+from collections import deque
 
-st.title("🎓 Student Grouping Tool")
-st.write("Upload a CSV/Excel file with **Name** and **Score** columns to generate categorized students and mixed-ability groups.")
+st.set_page_config(page_title="Student Grouping Tool", layout="wide")
+
+st.title("🎓 Student Grouping and Performance Tool")
+
+st.info(
+    """
+    📌 **Upload Instructions**
+    - File type: **Excel (.xlsx)**
+    - Required columns (exact names): **ID**, **Name**, **Score**
+    - Example row: `L24-8928 | Ali Khan | 72`
+    - Scores must be between **0 and 100**.
+    """
+)
 
 # -------------------------
-# Upload File
+# Helpers
 # -------------------------
-uploaded_file = st.file_uploader("📂 Upload your student file (CSV or Excel)", type=["csv", "xlsx"])
-
-# -------------------------
-# Category Function
-# -------------------------
-def categorize_student(score):
+def segment_and_color(score: float):
+    """Return (SegmentName, ColorName) per your exact rules."""
     if score <= 20:
-        return "Minimal", "#FF4C4C"       # Dark Red
+        return "Minimal", "red"
     elif score <= 40:
-        return "Needs Improvement", "#FF8000"  # Orange
+        return "Needs Improvement", "orange"
     elif score <= 60:
-        return "Developing", "#FFD700"    # Golden Yellow
+        return "Developing", "yellow"
     elif score <= 80:
-        return "Proficient", "#1E90FF"    # Dodger Blue
+        return "Proficient", "blue"
     else:
-        return "Exemplary", "#228B22"     # Forest Green
+        return "Exemplary", "green"
+
+# Medium-dark, clear tones (good visibility without being neon)
+COLOR_HEX = {
+    "red":    "#EF5350",
+    "orange": "#FB8C00",
+    "yellow": "#FBC02D",
+    "blue":   "#42A5F5",
+    "green":  "#66BB6A",
+}
+
+SEGMENT_ORDER = ["Minimal", "Needs Improvement", "Developing", "Proficient", "Exemplary"]
+
+def style_entire_row_using_series(display_df: pd.DataFrame, color_series: pd.Series):
+    """
+    Style a DataFrame (with Color column already dropped) by fetching each row's color
+    from a parallel Series indexed the same as display_df.
+    """
+    def _apply(row):
+        col = color_series.loc[row.name]
+        return [f"background-color: {col}; text-align: center;"] * len(row)
+
+    return (
+        display_df.style
+        .apply(_apply, axis=1)
+        .set_properties(**{"text-align": "center"})
+        .set_table_styles([
+            {"selector": "th",
+             "props": [("font-weight", "bold"), ("color", "black"), ("text-align", "center")]}
+        ])
+    )
 
 # -------------------------
-# If File Uploaded
+# Upload
 # -------------------------
-if uploaded_file:
-    # Load file
-    if uploaded_file.name.endswith(".csv"):
-        df = pd.read_csv(uploaded_file)
-    else:
-        df = pd.read_excel(uploaded_file)
+uploaded = st.file_uploader("📂 Upload Excel (.xlsx) with ID, Name, Score", type=["xlsx"])
 
-    # Ensure columns exist
-    if "Name" not in df.columns or "Score" not in df.columns:
-        st.error("❌ File must contain 'Name' and 'Score' columns.")
-    else:
-        # Categorize
-        df["Category"], df["Color"] = zip(*df["Score"].apply(categorize_student))
+if not uploaded:
+    st.stop()
 
-        # -------------------------
-        # First Table: All Students
-        # -------------------------
-        st.subheader("📊 Student Categories")
+# Read file
+df = pd.read_excel(uploaded)
 
-        def highlight_category(row):
-            return [f"background-color: {row['Color']}; text-align: center; font-weight: bold;"] * len(row)
+# Validate columns
+expected_cols = ["ID", "Name", "Score"]
+if not all(c in df.columns for c in expected_cols):
+    st.error(f"❌ Your file must contain columns: {expected_cols}")
+    st.stop()
 
-        styled_df = (
-            df.style
-            .apply(highlight_category, axis=1)
-            .hide_columns(["Color"])
-            .set_properties(**{"text-align": "center"})
-            .set_table_styles([{
-                'selector': 'th',
-                'props': [('font-weight', 'bold'), ('text-align', 'center')]
-            }])
-        )
+# Validate score bounds
+df = df.copy()
+df = df[(pd.to_numeric(df["Score"], errors="coerce") >= 0) & (pd.to_numeric(df["Score"], errors="coerce") <= 100)]
+df["Score"] = pd.to_numeric(df["Score"], errors="coerce").fillna(0)
 
-        st.dataframe(styled_df, use_container_width=True)
+# Segment + color names + hex for styling
+df[["Segment", "ColorName"]] = df["Score"].apply(lambda x: pd.Series(segment_and_color(x)))
+df["ColorHex"] = df["ColorName"].map(COLOR_HEX)
 
-        # -------------------------
-        # Mixed Ability Groups
-        # -------------------------
-        st.subheader("👥 Mixed-Ability Groups")
+# -------------------------
+# Table 1: All students (no group numbers)
+# -------------------------
+st.subheader("📊 Student Segmentation (All Students)")
 
-        # Shuffle within categories
-        grouped = {cat: df[df["Category"] == cat].sample(frac=1, random_state=42) for cat in df["Category"].unique()}
+# show color names here; shade rows using ColorHex
+display_1 = df[["ID", "Name", "Score", "Segment", "ColorName"]].copy()
+styled_1 = style_entire_row_using_series(display_1, df["ColorHex"])
+st.dataframe(styled_1, use_container_width=True)
 
-        # Find max group size
-        max_size = max(len(students) for students in grouped.values())
+# -------------------------
+# Build Mixed-Ability Groups
+# -------------------------
+st.subheader("👥 Mixed-Ability Groups (separate tables)")
 
-        # Create groups by round-robin
-        groups = []
-        for i in range(max_size):
-            group = []
-            for cat, students in grouped.items():
-                if i < len(students):
-                    group.append(students.iloc[i])
-            if group:
-                groups.append(pd.DataFrame(group))
+# Create queues per segment in the required order
+queues = {seg: deque(df[df["Segment"] == seg].index.tolist()) for seg in SEGMENT_ORDER}
 
-        # Display each group separately
-        for idx, group_df in enumerate(groups, start=1):
-            st.markdown(f"### Group {idx}")
+groups = []  # list of lists of row indices
+# First pass: form "perfect" groups with one from each segment
+while all(len(queues[seg]) > 0 for seg in SEGMENT_ORDER):
+    group_indices = []
+    for seg in SEGMENT_ORDER:
+        group_indices.append(queues[seg].popleft())
+    groups.append(group_indices)
 
-            def highlight_row(row):
-                return [f"background-color: {row['Color']}; text-align: center; font-weight: bold;"] * len(row)
+# Collect leftovers (any remaining students in any segment)
+leftovers = []
+for seg in SEGMENT_ORDER:
+    leftovers.extend(list(queues[seg]))
 
-            styled_group = (
-                group_df.style
-                .apply(highlight_row, axis=1)
-                .hide_columns(["Color", "Score"])  # only Name + Category
-                .set_properties(**{"text-align": "center"})
-                .set_table_styles([{
-                    'selector': 'th',
-                    'props': [('font-weight', 'bold'), ('text-align', 'center')]
-                }])
-            )
+# Distribute leftovers round-robin across existing groups; if no groups yet, start new groups
+if groups:
+    gi = 0
+    for idx in leftovers:
+        groups[gi % len(groups)].append(idx)
+        gi += 1
+else:
+    # No perfect groups possible; create groups directly from leftovers in blocks of up to 5
+    block = []
+    for idx in leftovers:
+        block.append(idx)
+        if len(block) == 5:
+            groups.append(block)
+            block = []
+    if block:
+        groups.append(block)
 
-            st.dataframe(styled_group, use_container_width=True)
-            st.markdown("---")  # separator
+# -------------------------
+# Show each group as a separate table, with a gap
+# -------------------------
+if not groups:
+    st.warning("No groups could be formed from the uploaded data.")
+else:
+    for gnum, gindices in enumerate(groups, start=1):
+        st.markdown(f"### Group {gnum}")
+
+        gdf = df.loc[gindices, ["ID", "Name", "Score", "Segment", "ColorHex"]].copy()
+
+        # We don't want to *display* color names in groups; only background color.
+        display_g = gdf[["ID", "Name", "Score", "Segment"]].copy()
+        colors_g = gdf["ColorHex"]
+
+        styled_g = style_entire_row_using_series(display_g, colors_g)
+        st.dataframe(styled_g, use_container_width=True)
+        st.markdown("---")
