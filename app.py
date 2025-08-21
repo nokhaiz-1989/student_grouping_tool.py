@@ -2,132 +2,112 @@ import streamlit as st
 import pandas as pd
 import random
 
-# -----------------------------
-# App Title & Instructions
-# -----------------------------
-st.title("🎯 Student Performance Segmentation & Mixed-Ability Grouping Tool")
+st.set_page_config(page_title="Student Grouping Tool", layout="wide")
 
-st.markdown("""
-📌 **Instructions for Uploading File**
-1. Prepare an Excel/CSV file with the following columns:  
-   - **ID** (e.g., `L24-8928`)  
-   - **Name** (Student name)  
-   - **Score** (Numerical marks)  
-2. Upload the file using the uploader below.  
-3. The tool will:  
-   - Categorize students into performance bands.  
-   - Form **balanced mixed-ability groups** automatically.  
+st.title("🎓 Student Grouping Tool")
+st.write("""
+Upload an Excel file with the following format:
+
+- **First column:** Student ID (e.g., L24-8928)  
+- **Second column:** Student Name  
+- **Third column:** Score (numeric)  
+
+The app will:  
+1. Segment students into categories (Excellent, Good, Needs Improvement, Minimal).  
+2. Form **mixed-ability groups** (each group will try to have one student from each category).  
+3. Display results in styled tables.  
 """)
 
-# -----------------------------
-# File Upload
-# -----------------------------
-uploaded_file = st.file_uploader("📂 Upload Excel/CSV file", type=["xlsx", "csv"])
+# File uploader
+uploaded_file = st.file_uploader("📂 Upload Excel File", type=["xlsx"])
 
-if uploaded_file is not None:
-    # Read file
-    if uploaded_file.name.endswith(".xlsx"):
-        df = pd.read_excel(uploaded_file)
-    else:
-        df = pd.read_csv(uploaded_file)
+if uploaded_file:
+    # Read the file
+    df = pd.read_excel(uploaded_file)
 
-    # Validate file
-    expected_cols = ["ID", "Name", "Score"]
-    if not all(col in df.columns for col in expected_cols):
-        st.error(f"❌ The file must contain columns: {expected_cols}")
-    else:
-        # -----------------------------
-        # Categorization
-        # -----------------------------
-        def categorize(score):
-            if score < 40:
-                return "Minimal"
-            elif score < 60:
-                return "Needs Improvement"
-            elif score < 70:
-                return "Satisfactory"
-            elif score < 85:
-                return "Good"
+    # Ensure columns are correct
+    df.columns = ["Student ID", "Name", "Score"]
+
+    # Define categories and their colors
+    categories = {
+        "Excellent": "green",
+        "Good": "blue",
+        "Needs Improvement": "orange",
+        "Minimal": "red"
+    }
+
+    def assign_category(score):
+        if score >= 85:
+            return "Excellent"
+        elif score >= 70:
+            return "Good"
+        elif score >= 50:
+            return "Needs Improvement"
+        else:
+            return "Minimal"
+
+    # Assign categories
+    df["Category"] = df["Score"].apply(assign_category)
+
+    # --- Table 1: Segmentation ---
+    st.subheader("📊 Student Segmentation")
+
+    def highlight_row(row):
+        color = categories[row["Category"]]
+        return [f"background-color: {color}; text-align: center;"] * len(row)
+
+    styled_df = (
+        df.style
+        .apply(highlight_row, axis=1)
+        .set_properties(**{"text-align": "center"})
+        .set_table_styles([
+            {"selector": "th", "props": [("font-weight", "bold"),
+                                         ("color", "black"),
+                                         ("text-align", "center")]}
+        ])
+    )
+    st.dataframe(styled_df, use_container_width=True)
+
+    # --- Table 2: Mixed-Ability Groups ---
+    st.subheader("👥 Mixed-Ability Groups")
+
+    # Separate by category
+    cat_dfs = {cat: df[df["Category"] == cat].copy() for cat in categories.keys()}
+    max_len = max(len(c) for c in cat_dfs.values())
+
+    # Shuffle each category
+    for cat in cat_dfs:
+        cat_dfs[cat] = cat_dfs[cat].sample(frac=1).reset_index(drop=True)
+
+    groups = []
+    for i in range(max_len):
+        group = {"Group": f"Group {i+1}"}
+        for cat, cat_df in cat_dfs.items():
+            if i < len(cat_df):
+                student = cat_df.iloc[i]
+                group[cat] = f"{student['Student ID']} - {student['Name']}"
+        groups.append(group)
+
+    groups_df = pd.DataFrame(groups)
+
+    # Styling for groups table
+    def highlight_group_row(row):
+        styles = []
+        for col in row.index:
+            if col in categories:
+                styles.append(f"background-color: {categories[col]}; text-align: center;")
             else:
-                return "Excellent"
+                styles.append("text-align: center;")
+        return styles
 
-        df["Category"] = df["Score"].apply(categorize)
-
-        # Assign color for categories
-        color_map = {
-            "Minimal": "red",
-            "Needs Improvement": "orange",
-            "Satisfactory": "yellow",
-            "Good": "blue",
-            "Excellent": "green"
-        }
-        df["Color"] = df["Category"].map(color_map)
-
-        # -----------------------------
-        # Show Segmentation Table
-        # -----------------------------
-        st.subheader("📊 Student Performance Segmentation")
-
-        def highlight_row(row):
-            return [f"background-color: {row['Color']}; text-align: center;"] * len(row)
-
-        styled_df = (
-            df.style.apply(highlight_row, axis=1)
-            .set_properties(**{"text-align": "center"})
-            .set_table_styles([
-                {"selector": "th", "props": [("font-weight", "bold"), ("color", "black"), ("text-align", "center")]}
-            ])
-        )
-        st.dataframe(styled_df, use_container_width=True)
-
-        # -----------------------------
-        # Mixed-Ability Grouping
-        # -----------------------------
-        st.subheader("👥 Mixed-Ability Groups")
-
-        # Separate students by category
-        grouped = {cat: df[df["Category"] == cat].copy() for cat in df["Category"].unique()}
-
-        # Decide number of groups = max category size
-        num_groups = max(len(v) for v in grouped.values())
-
-        groups = [[] for _ in range(num_groups)]
-
-        # Distribute students category-wise into groups
-        for cat, students in grouped.items():
-            students_list = students.to_dict("records")
-            random.shuffle(students_list)
-            for i, student in enumerate(students_list):
-                groups[i % num_groups].append(student)
-
-        # Convert groups to DataFrame
-        groups_data = []
-        for i, group in enumerate(groups, 1):
-            for student in group:
-                groups_data.append({
-                    "Group": f"Group {i}",
-                    "ID": student["ID"],
-                    "Name": student["Name"],
-                    "Score": student["Score"],
-                    "Category": student["Category"],
-                    "Color": student["Color"]
-                })
-
-        groups_df = pd.DataFrame(groups_data)
-
-        def highlight_group_row(row):
-            return [f"background-color: {row['Color']}; text-align: center;"] * len(row)
-
-        styled_groups_df = (
-            groups_df.drop(columns=["Color"])  # no color column here
-            .style.apply(highlight_group_row, axis=1)
-            .set_properties(**{"text-align": "center"})
-            .set_table_styles([
-                {"selector": "th", "props": [("font-weight", "bold"), ("color", "black"), ("text-align", "center")]}
-            ])
-        )
-
-        st.dataframe(styled_groups_df, use_container_width=True)
-
-else:
-    st.info("ℹ️ Please upload a file to begin.")
+    styled_groups_df = (
+        groups_df.style
+        .apply(highlight_group_row, axis=1)
+        .set_properties(**{"text-align": "center"})
+        .set_table_styles([
+            {"selector": "th", "props": [("font-weight", "bold"),
+                                         ("color", "black"),
+                                         ("text-align", "center")]}
+        ])
+    )
+    st.dataframe(styled_groups_df, use_container_width=True)
