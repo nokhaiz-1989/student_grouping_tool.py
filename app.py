@@ -1,105 +1,106 @@
 import streamlit as st
 import pandas as pd
-import re
 
-st.set_page_config(page_title="Writing Skills Assessment", layout="wide")
+st.title("Student Assessment & Mixed Ability Grouping Tool")
 
-st.title("📊 Writing Skills Assessment Tool")
-
-# --- STEP 1: Upload Excel ---
-uploaded_file = st.file_uploader("Upload Excel file with Student IDs, Names and Scores", type=["xlsx"])
+# ---- File Upload ----
+uploaded_file = st.file_uploader("Upload Excel file with Student Data", type=["xlsx"])
 
 if uploaded_file:
+    # Read Excel file
     df = pd.read_excel(uploaded_file)
 
-    # Expected columns: ID, Name, Score
+    # Ensure correct columns exist
     expected_cols = ["ID", "Name", "Score"]
     if not all(col in df.columns for col in expected_cols):
-        st.error(f"❌ Excel must contain columns: {expected_cols}")
+        st.error(f"Excel must have columns: {expected_cols}")
     else:
-        # Validate IDs: allow L24-#### format
-        id_pattern = r"^L\d{2}-\d{4}$"
-        if not all(df['ID'].astype(str).apply(lambda x: bool(re.match(id_pattern, x)))):
-            st.error("❌ IDs must follow the format Lxx-xxxx (e.g., L24-8928)")
-        elif not all((df['Score'] >= 0) & (df['Score'] <= 100)):
-            st.error("❌ Scores must be between 0 and 100")
-        else:
-            # --- STEP 2: Segmentation by Color ---
-            def segment(score):
-                if score <= 20:
-                    return "Minimal", "red"
-                elif score <= 40:
-                    return "Needs Improvement", "orange"
-                elif score <= 60:
-                    return "Developing", "yellow"
-                elif score <= 80:
-                    return "Proficient", "blue"
-                else:
-                    return "Exemplary", "green"
+        # ---- Step 1: Validate Scores ----
+        df = df[(df["Score"] >= 0) & (df["Score"] <= 100)]
 
-            df["Segment"], df["Color"] = zip(*df["Score"].apply(segment))
+        # ---- Step 2: Assign Segments & Colors ----
+        def get_segment(score):
+            if score <= 20:
+                return "Minimal", "Red"
+            elif score <= 40:
+                return "Needs Improvement", "Orange"
+            elif score <= 60:
+                return "Developing", "Yellow"
+            elif score <= 80:
+                return "Proficient", "Blue"
+            else:
+                return "Exemplary", "Green"
 
-            st.subheader("🎨 Student Segmentation")
+        df[["Segment", "Color"]] = df["Score"].apply(lambda x: pd.Series(get_segment(x)))
 
-            # Apply darker color formatting row-wise
-            def highlight_row(row):
-                return [f'background-color: {row["Color"]}; color: black'] * len(row)
-
-            styled_df = df.style.apply(highlight_row, axis=1)
-            st.dataframe(styled_df, use_container_width=True)
-
-            # --- STEP 3: Mixed Ability Groups ---
-            st.subheader("👥 Mixed Ability Groups")
-
-            # Separate students by segment
-            segment_groups = {
-                "Minimal": df[df["Segment"] == "Minimal"][["ID", "Name", "Color"]].values.tolist(),
-                "Needs Improvement": df[df["Segment"] == "Needs Improvement"][["ID", "Name", "Color"]].values.tolist(),
-                "Developing": df[df["Segment"] == "Developing"][["ID", "Name", "Color"]].values.tolist(),
-                "Proficient": df[df["Segment"] == "Proficient"][["ID", "Name", "Color"]].values.tolist(),
-                "Exemplary": df[df["Segment"] == "Exemplary"][["ID", "Name", "Color"]].values.tolist()
+        # ---- Table 1: Segmentation with Darker Colors ----
+        def highlight_row(row):
+            color_map = {
+                "Red": "background-color: #ff4d4d; color: black;",
+                "Orange": "background-color: #ffa64d; color: black;",
+                "Yellow": "background-color: #ffff66; color: black;",
+                "Blue": "background-color: #4da6ff; color: black;",
+                "Green": "background-color: #70db70; color: black;",
             }
+            return [color_map.get(row["Color"], "")] * len(row)
 
-            groups = []
-            for i in range(20):
-                group = []
-                for seg in ["Minimal", "Needs Improvement", "Developing", "Proficient", "Exemplary"]:
-                    if segment_groups[seg]:
-                        student = segment_groups[seg].pop(0)
-                        group.append({"ID": student[0], "Name": student[1], "Color": student[2]})
-                groups.append(group)
+        styled_df = (
+            df.style
+            .apply(highlight_row, axis=1)
+            .set_properties(**{"text-align": "center"})
+            .set_table_styles([
+                {"selector": "th", "props": [("font-weight", "bold"), ("color", "black"), ("text-align", "center")]}
+            ])
+        )
 
-            # Build dataframe for groups
-            max_len = max(len(g) for g in groups)
-            formatted_groups = []
-            for idx, group in enumerate(groups, start=1):
-                row = {}
-                for j, seg in enumerate(["Minimal", "Needs Improvement", "Developing", "Proficient", "Exemplary"]):
-                    if j < len(group):
-                        row[seg] = f"{group[j]['ID']} ({group[j]['Name']})"
-                    else:
-                        row[seg] = ""
-                formatted_groups.append(row)
+        st.subheader("📊 Student Segmentation by Score")
+        st.dataframe(styled_df, use_container_width=True)
 
-            groups_df = pd.DataFrame(formatted_groups)
-            groups_df.index = [f"Group {i+1}" for i in range(len(groups_df))]
+        # ---- Step 3: Create Mixed Ability Groups ----
+        groups = []
+        grouped = {color: df[df["Color"] == color].values.tolist() for color in df["Color"].unique()}
 
-            # Style with background colors in the group table
-            def color_cells(val):
-                # Find color for the student based on ID
-                if "(" in val:  # only style if student exists
-                    student_id = val.split(" ")[0]
-                    color = df.loc[df["ID"] == student_id, "Color"].values[0]
-                    return f'background-color: {color}; color: black'
-                return ""
+        # Make groups by picking one student from each color
+        group_num = 1
+        while any(grouped.values()):
+            group = []
+            for color in ["Red", "Orange", "Yellow", "Blue", "Green"]:
+                if grouped.get(color) and len(grouped[color]) > 0:
+                    group.append(grouped[color].pop(0))
+            if group:
+                for student in group:
+                    groups.append([f"Group {group_num}"] + student)
+                group_num += 1
 
-            styled_groups_df = groups_df.style.applymap(color_cells)
+        groups_df = pd.DataFrame(groups, columns=["Group", "ID", "Name", "Score", "Segment", "Color"])
 
-            st.dataframe(styled_groups_df, use_container_width=True)
+        # ---- Table 2: Groups with Background Colors (no color text shown) ----
+        def color_cells(val):
+            color_map = {
+                "Red": "background-color: #ff9999; color: black;",
+                "Orange": "background-color: #ffcc99; color: black;",
+                "Yellow": "background-color: #ffffb3; color: black;",
+                "Blue": "background-color: #99ccff; color: black;",
+                "Green": "background-color: #b3ffb3; color: black;",
+            }
+            return color_map.get(val, "")
 
-            # Download option
-            csv = groups_df.to_csv(index=True).encode("utf-8")
-            st.download_button("⬇️ Download Groups CSV", csv, "mixed_ability_groups.csv", "text/csv")
+        styled_groups_df = (
+            groups_df.drop(columns=["Color"])  # don't display color column
+            .style
+            .applymap(color_cells, subset=["Segment"])
+            .set_properties(**{"text-align": "center"})
+            .set_table_styles([
+                {"selector": "th", "props": [("font-weight", "bold"), ("color", "black"), ("text-align", "center")]}
+            ])
+        )
 
-else:
-    st.info("👆 Please upload an Excel file with columns: `ID` (e.g., L24-8928), `Name`, and `Score` (0–100).")
+        st.subheader("👥 Mixed Ability Groups")
+        st.dataframe(styled_groups_df, use_container_width=True)
+
+        # ---- Download Option ----
+        output_excel = "student_groups.xlsx"
+        groups_df.to_excel(output_excel, index=False)
+
+        with open(output_excel, "rb") as f:
+            st.download_button("📥 Download Groups Excel", f, file_name="student_groups.xlsx")
