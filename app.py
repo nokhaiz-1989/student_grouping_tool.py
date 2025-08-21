@@ -73,7 +73,6 @@ if uploaded_file:
         groups = []
         grouped = {color: df[df["Color"] == color].values.tolist() for color in df["Color"].unique()}
 
-        # Make groups by picking one student from each color
         group_num = 1
         while any(grouped.values()):
             group = []
@@ -87,8 +86,8 @@ if uploaded_file:
 
         groups_df = pd.DataFrame(groups, columns=["Group", "ID", "Name", "Score", "Segment", "Color"])
 
-        # ---- Table 2: Groups with Background Colors (no color text shown) ----
-        def color_cells(val):
+        # ---- Table 2: Groups with Full Row Colors (better look) ----
+        def highlight_group_row(row):
             color_map = {
                 "Red": "background-color: #ff9999; color: black; text-align: center;",
                 "Orange": "background-color: #ffcc99; color: black; text-align: center;",
@@ -96,12 +95,12 @@ if uploaded_file:
                 "Blue": "background-color: #99ccff; color: black; text-align: center;",
                 "Green": "background-color: #b3ffb3; color: black; text-align: center;",
             }
-            return color_map.get(val, "text-align: center;")
+            return [color_map.get(row["Color"], "text-align: center;")] * len(row)
 
         styled_groups_df = (
-            groups_df.drop(columns=["Color"])  # don't display color column
+            groups_df.drop(columns=["Color"])  # don't show color name
             .style
-            .applymap(color_cells, subset=["Segment"])
+            .apply(highlight_group_row, axis=1)
             .set_properties(**{"text-align": "center"})
             .set_table_styles([
                 {"selector": "th", "props": [("font-weight", "bold"), ("color", "black"), ("text-align", "center")]}
