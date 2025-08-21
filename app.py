@@ -52,7 +52,7 @@ if uploaded_file:
     df[["Category", "Color"]] = df["Score"].apply(lambda s: pd.Series(categorize(s)))
 
     st.subheader("📊 Uploaded Student Data with Categories")
-    styled_df = df.style.apply(lambda x: [f"background-color: {c}; text-align:center;" for c in df["Color"]], axis=0)
+    styled_df = df.style.apply(lambda _: [f"background-color: {c}; text-align:center;" for c in df["Color"]], axis=0)
     st.dataframe(styled_df, use_container_width=True)
 
     # -------------------------------
@@ -80,9 +80,22 @@ if uploaded_file:
     # Display groups separately with spacing
     for group_name, group_df in groups:
         st.markdown(f"### {group_name}")
-        styled_group = group_df.style.apply(
-            lambda x: [f"background-color: {categorize(v)[1]}; text-align:center;" if x.name == "Category" else "" for v in x],
-            axis=0
-        )
+
+        # ✅ Fix: directly map colors based on Category column
+        if "Category" in group_df.columns:
+            color_map = {
+                "Minimal": "red",
+                "Needs Improvement": "orange",
+                "Developing": "yellow",
+                "Proficient": "blue",
+                "Exemplary": "green"
+            }
+            styled_group = group_df.style.apply(
+                lambda x: [f"background-color: {color_map.get(v, 'white')}; text-align:center;" if x.name == "Category" else "" for v in x],
+                axis=0
+            )
+        else:
+            styled_group = group_df.style
+
         st.dataframe(styled_group, use_container_width=True)
         st.markdown("---")  # adds gap between groups
