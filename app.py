@@ -68,7 +68,13 @@ if uploaded_file:
     # Create groups of 5
     for i in range(0, len(all_students), group_size):
         group_members = all_students[i:i + group_size]
-        group_df = pd.DataFrame(group_members)[["Student ID", "Name", "Score", "Category"]]
+        group_df = pd.DataFrame(group_members)
+
+        # ✅ Fix: select only available columns to avoid KeyError
+        expected_cols = ["Student ID", "Name", "Score", "Category"]
+        available_cols = [col for col in expected_cols if col in group_df.columns]
+        group_df = group_df[available_cols]
+
         groups.append((f"Group {len(groups)+1}", group_df))
 
     # Display groups separately with spacing
