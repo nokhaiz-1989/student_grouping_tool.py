@@ -26,9 +26,9 @@ if uploaded_file:
             elif score <= 60:
                 return "Developing", "yellow"
             elif score <= 80:
-                return "Proficient", "lightblue"
+                return "Proficient", "blue"
             else:
-                return "Exemplary", "lightgreen"
+                return "Exemplary", "green"
 
         df["Segment"], df["Color"] = zip(*df["Score"].apply(segment))
 
@@ -62,14 +62,19 @@ if uploaded_file:
                     group.append(segment_groups[seg].pop(0))
             groups.append(group)
 
-        groups_df = pd.DataFrame(groups, columns=["Red (Minimal)", "Orange (Needs Improvement)", 
-                                                  "Yellow (Developing)", "Blue (Proficient)", 
-                                                  "Green (Exemplary)"])
-        
+        # Add group numbers
+        groups_df = pd.DataFrame(
+            groups,
+            columns=["Red (Minimal)", "Orange (Needs Improvement)", 
+                     "Yellow (Developing)", "Blue (Proficient)", 
+                     "Green (Exemplary)"]
+        )
+        groups_df.index = [f"Group {i+1}" for i in range(len(groups_df))]
+
         st.dataframe(groups_df, use_container_width=True)
 
         # Download option
-        csv = groups_df.to_csv(index=False).encode("utf-8")
+        csv = groups_df.to_csv(index=True).encode("utf-8")
         st.download_button("⬇️ Download Groups CSV", csv, "mixed_ability_groups.csv", "text/csv")
 
 else:
