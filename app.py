@@ -56,46 +56,31 @@ if uploaded_file:
     st.dataframe(styled_df, use_container_width=True)
 
     # -------------------------------
-    # Create Mixed Ability Groups
+    # Create Mixed Ability Groups (Balanced)
     # -------------------------------
     st.subheader("👥 Mixed Ability Groups")
 
     groups = []
     group_size = 5
-    all_students = df.to_dict("records")
-    random.shuffle(all_students)
 
-    # Create groups of 5
-    for i in range(0, len(all_students), group_size):
-        group_members = all_students[i:i + group_size]
-        group_df = pd.DataFrame(group_members)
+    # Split by category
+    categories = df["Category"].unique()
+    category_groups = {cat: df[df["Category"] == cat].to_dict("records") for cat in categories}
 
-        # ✅ Fix: select only available columns to avoid KeyError
-        expected_cols = ["Student ID", "Name", "Score", "Category"]
-        available_cols = [col for col in expected_cols if col in group_df.columns]
-        group_df = group_df[available_cols]
+    # Shuffle within each category
+    for cat in category_groups:
+        random.shuffle(category_groups[cat])
 
-        groups.append((f"Group {len(groups)+1}", group_df))
+    # Find max groups possible
+    max_groups = max(len(students) for students in category_groups.values())
+
+    # Build groups round-robin from each category
+    for i in range(max_groups):
+        group_members = []
+        for cat in categories:
+            if i < len(category_groups[cat]):
+                group_members.append(category_groups[cat][i])
+        groups.append((f"Group {len(groups)+1}", pd.DataFrame(group_members)))
 
     # Display groups separately with spacing
-    for group_name, group_df in groups:
-        st.markdown(f"### {group_name}")
-
-        # ✅ Fix: directly map colors based on Category column
-        if "Category" in group_df.columns:
-            color_map = {
-                "Minimal": "red",
-                "Needs Improvement": "orange",
-                "Developing": "yellow",
-                "Proficient": "blue",
-                "Exemplary": "green"
-            }
-            styled_group = group_df.style.apply(
-                lambda x: [f"background-color: {color_map.get(v, 'white')}; text-align:center;" if x.name == "Category" else "" for v in x],
-                axis=0
-            )
-        else:
-            styled_group = group_df.style
-
-        st.dataframe(styled_group, use_container_width=True)
-        st.markdown("---")  # adds gap between groups
+    color_map = {
