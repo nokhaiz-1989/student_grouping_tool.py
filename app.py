@@ -27,23 +27,23 @@ if uploaded_file:
             # --- STEP 2: Segmentation by Color ---
             def segment(score):
                 if score <= 20:
-                    return "Minimal", "#ff9999"   # light red
+                    return "Minimal", "red"
                 elif score <= 40:
-                    return "Needs Improvement", "#ffcc99"   # light orange
+                    return "Needs Improvement", "orange"
                 elif score <= 60:
-                    return "Developing", "#ffff99"   # light yellow
+                    return "Developing", "yellow"
                 elif score <= 80:
-                    return "Proficient", "#99ccff"   # light blue
+                    return "Proficient", "blue"
                 else:
-                    return "Exemplary", "#99ff99"   # light green
+                    return "Exemplary", "green"
 
             df["Segment"], df["Color"] = zip(*df["Score"].apply(segment))
 
             st.subheader("🎨 Student Segmentation")
 
-            # Apply row-wise color formatting
+            # Apply darker color formatting row-wise
             def highlight_row(row):
-                return [f'background-color: {row["Color"]}'] * len(row)
+                return [f'background-color: {row["Color"]}; color: black'] * len(row)
 
             styled_df = df.style.apply(highlight_row, axis=1)
             st.dataframe(styled_df, use_container_width=True)
@@ -53,33 +53,49 @@ if uploaded_file:
 
             # Separate students by segment
             segment_groups = {
-                "Minimal": df[df["Segment"] == "Minimal"][["ID", "Name"]].values.tolist(),
-                "Needs Improvement": df[df["Segment"] == "Needs Improvement"][["ID", "Name"]].values.tolist(),
-                "Developing": df[df["Segment"] == "Developing"][["ID", "Name"]].values.tolist(),
-                "Proficient": df[df["Segment"] == "Proficient"][["ID", "Name"]].values.tolist(),
-                "Exemplary": df[df["Segment"] == "Exemplary"][["ID", "Name"]].values.tolist()
+                "Minimal": df[df["Segment"] == "Minimal"][["ID", "Name", "Color"]].values.tolist(),
+                "Needs Improvement": df[df["Segment"] == "Needs Improvement"][["ID", "Name", "Color"]].values.tolist(),
+                "Developing": df[df["Segment"] == "Developing"][["ID", "Name", "Color"]].values.tolist(),
+                "Proficient": df[df["Segment"] == "Proficient"][["ID", "Name", "Color"]].values.tolist(),
+                "Exemplary": df[df["Segment"] == "Exemplary"][["ID", "Name", "Color"]].values.tolist()
             }
 
             groups = []
-            # Make 20 groups
             for i in range(20):
                 group = []
                 for seg in ["Minimal", "Needs Improvement", "Developing", "Proficient", "Exemplary"]:
                     if segment_groups[seg]:
                         student = segment_groups[seg].pop(0)
-                        group.append(f"{student[0]} ({student[1]})")
+                        group.append({"ID": student[0], "Name": student[1], "Color": student[2]})
                 groups.append(group)
 
-            # Add group numbers
-            groups_df = pd.DataFrame(
-                groups,
-                columns=["Red (Minimal)", "Orange (Needs Improvement)", 
-                         "Yellow (Developing)", "Blue (Proficient)", 
-                         "Green (Exemplary)"]
-            )
+            # Build dataframe for groups
+            max_len = max(len(g) for g in groups)
+            formatted_groups = []
+            for idx, group in enumerate(groups, start=1):
+                row = {}
+                for j, seg in enumerate(["Minimal", "Needs Improvement", "Developing", "Proficient", "Exemplary"]):
+                    if j < len(group):
+                        row[seg] = f"{group[j]['ID']} ({group[j]['Name']})"
+                    else:
+                        row[seg] = ""
+                formatted_groups.append(row)
+
+            groups_df = pd.DataFrame(formatted_groups)
             groups_df.index = [f"Group {i+1}" for i in range(len(groups_df))]
 
-            st.dataframe(groups_df, use_container_width=True)
+            # Style with background colors in the group table
+            def color_cells(val):
+                # Find color for the student based on ID
+                if "(" in val:  # only style if student exists
+                    student_id = val.split(" ")[0]
+                    color = df.loc[df["ID"] == student_id, "Color"].values[0]
+                    return f'background-color: {color}; color: black'
+                return ""
+
+            styled_groups_df = groups_df.style.applymap(color_cells)
+
+            st.dataframe(styled_groups_df, use_container_width=True)
 
             # Download option
             csv = groups_df.to_csv(index=True).encode("utf-8")
