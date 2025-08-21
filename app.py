@@ -84,3 +84,29 @@ if uploaded_file:
 
     # Display groups separately with spacing
     color_map = {
+        "Minimal": "red",
+        "Needs Improvement": "orange",
+        "Developing": "yellow",
+        "Proficient": "blue",
+        "Exemplary": "green"
+    }
+
+    for group_name, group_df in groups:
+        st.markdown(f"### {group_name}")
+
+        # Select only available columns
+        expected_cols = ["Student ID", "Name", "Score", "Category"]
+        available_cols = [col for col in expected_cols if col in group_df.columns]
+        group_df = group_df[available_cols]
+
+        # Style Category column with colors
+        if "Category" in group_df.columns:
+            styled_group = group_df.style.apply(
+                lambda x: [f"background-color: {color_map.get(v, 'white')}; text-align:center;" if x.name == "Category" else "" for v in x],
+                axis=0
+            )
+        else:
+            styled_group = group_df.style
+
+        st.dataframe(styled_group, use_container_width=True)
+        st.markdown("---")  # adds gap between groups
