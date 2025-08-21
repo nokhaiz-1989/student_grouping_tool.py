@@ -1,100 +1,81 @@
 import streamlit as st
 import pandas as pd
+import random
 
-st.set_page_config(page_title="Student Grouping Tool", layout="wide")
-
-st.title("🎓 Student Grouping and Performance Tool")
+# Title
+st.title("📊 Student Grouping Tool")
 st.write("""
-📌 **Instructions**  
-1. Upload an Excel file with columns: **ID, Name, Score**.  
-   Example ID format: `L24-8928`  
-2. The app will categorize students into performance levels.  
-3. Groups will be formed with at least one student from each level.  
+Upload an Excel file with three columns:
+1. **ID** (e.g., L24-8928)  
+2. **Name** (Student name)  
+3. **Score** (0–100)  
+
+The tool will:
+- Classify students into categories (Minimal, Needs Improvement, Developing, Proficient, Exemplary).  
+- Color-code results.  
+- Form mixed-ability groups with one student from each category.  
 """)
 
-# --- File Upload ---
+# File upload
 uploaded_file = st.file_uploader("📂 Upload your Excel file", type=["xlsx"])
 
+# Category assignment function
+def assign_category(score):
+    if score <= 20:
+        return "Minimal", "red"
+    elif score <= 40:
+        return "Needs Improvement", "orange"
+    elif score <= 60:
+        return "Developing", "yellow"
+    elif score <= 80:
+        return "Proficient", "blue"
+    else:
+        return "Exemplary", "green"
+
+# Styling function for DataFrame
+def highlight_rows(row):
+    return [f"background-color: {row['Color']}; text-align: center;"] * len(row)
+
 if uploaded_file:
+    # Read file
     df = pd.read_excel(uploaded_file)
 
-    # --- Ensure correct columns ---
-    expected_columns = ["ID", "Name", "Score"]
-    if not all(col in df.columns for col in expected_columns):
-        st.error(f"Your file must contain the columns: {expected_columns}")
-    else:
-        # --- Categorize performance ---
-        def categorize(score):
-            if score < 20:
-                return "Minimal", "red"
-            elif score <= 40:
-                return "Needs Improvement", "orange"
-            elif score <= 60:
-                return "Developing", "yellow"
-            elif score <= 80:
-                return "Proficient", "blue"
-            else:
-                return "Exemplary", "green"
+    # Ensure proper columns
+    df.columns = ["ID", "Name", "Score"]
 
-        df[["Category", "ColorName"]] = df["Score"].apply(lambda x: pd.Series(categorize(x)))
+    # Assign categories & colors
+    df[["Category", "Color"]] = df["Score"].apply(lambda x: pd.Series(assign_category(x)))
 
-        # Softer pastel background colors
-        category_colors = {
-            "red": "#f8d7da",
-            "orange": "#ffe5b4",
-            "yellow": "#fff9c4",
-            "blue": "#d6eaff",
-            "green": "#d4edda"
-        }
+    # ===== First Table: Classification =====
+    st.subheader("📌 Classification by Score")
+    styled_df = df.style.apply(highlight_rows, axis=1)\
+                        .set_properties(**{"text-align": "center"})\
+                        .set_table_styles([{"selector": "th", "props": [("font-weight", "bold"), ("text-align", "center")]}])
+    st.dataframe(styled_df, use_container_width=True)
 
-        # --- Styling function for first table ---
-        def highlight_category(row):
-            return [f"background-color: {category_colors[row['ColorName']]}; text-align: center;"] * len(row)
+    # ===== Second Table: Mixed Ability Groups =====
+    st.subheader("👥 Mixed Ability Groups")
 
-        styled_df = df.style.apply(highlight_category, axis=1).set_table_styles(
-            [{'selector': 'th', 'props': [('font-weight', 'bold'), ('text-align', 'center')]}]
-        )
+    # Shuffle within categories
+    categories = df["Category"].unique()
+    grouped_students = {cat: df[df["Category"] == cat].sample(frac=1).reset_index(drop=True) for cat in categories}
 
-        st.subheader("📊 Student Performance by Category")
-        st.dataframe(styled_df, use_container_width=True)
+    # Minimum group count possible
+    min_count = min(len(studs) for studs in grouped_students.values())
+    groups = []
 
-        # --- Mixed Ability Group Formation ---
-        groups = []
-        categories = df["Category"].unique()
-        category_students = {cat: df[df["Category"] == cat].sample(frac=1).to_dict("records") for cat in categories}
+    for i in range(min_count):
+        group = []
+        for cat, studs in grouped_students.items():
+            group.append(studs.iloc[i])
+        groups.append(pd.DataFrame(group))
 
-        # Form groups with at least one from each category
-        while any(category_students.values()):
-            group = []
-            for cat in categories:
-                if category_students[cat]:
-                    group.append(category_students[cat].pop())
-            if group:
-                groups.append(group)
+    groups_df = pd.concat(groups, keys=[f"Group {i+1}" for i in range(len(groups))]).reset_index(level=1, drop=True)
+    groups_df = groups_df.reset_index().rename(columns={"index": "Group"})
 
-        # Convert groups into DataFrame
-        group_rows = []
-        for i, group in enumerate(groups, start=1):
-            for student in group:
-                group_rows.append({
-                    "Group": f"Group {i}",
-                    "ID": student["ID"],
-                    "Name": student["Name"],
-                    "Score": student["Score"],
-                    "Category": student["Category"],
-                    "ColorName": student["ColorName"],
-                    "Color": category_colors[student["ColorName"]]
-                })
+    # Keep group colors for highlighting
+    styled_groups_df = groups_df.style.apply(lambda row: [f"background-color: {row['Color']}; text-align: center;"] * len(row), axis=1)\
+                                      .set_properties(**{"text-align": "center"})\
+                                      .set_table_styles([{"selector": "th", "props": [("font-weight", "bold"), ("text-align", "center")]}])
 
-        groups_df = pd.DataFrame(group_rows)
-
-        # --- Styling for grouped table ---
-        def highlight_group_row(row):
-            return [f"background-color: {row['Color']}; text-align: center;"] * len(row)
-
-        styled_groups_df = groups_df.drop(columns=["Color"]).style.apply(highlight_group_row, axis=1).set_table_styles(
-            [{'selector': 'th', 'props': [('font-weight', 'bold'), ('text-align', 'center')]}]
-        )
-
-        st.subheader("👥 Mixed Ability Groups")
-        st.dataframe(styled_groups_df, use_container_width=True)
+    st.dataframe(styled_groups_df, use_container_width=True)
