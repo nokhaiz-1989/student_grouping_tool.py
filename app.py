@@ -1,9 +1,11 @@
 import streamlit as st
 import pandas as pd
 
-# --- STEP 1: Upload Excel ---
-st.title("Writing Skills Assessment Tool")
+st.set_page_config(page_title="Writing Skills Assessment", layout="wide")
 
+st.title("📊 Writing Skills Assessment Tool")
+
+# --- STEP 1: Upload Excel ---
 uploaded_file = st.file_uploader("Upload Excel file with Student IDs and Scores", type=["xlsx"])
 
 if uploaded_file:
@@ -11,9 +13,9 @@ if uploaded_file:
 
     # Validate IDs and Scores
     if not all(df['ID'].str.startswith("STD-")):
-        st.error("Student IDs must be in the format STD-001 to STD-100")
+        st.error("❌ Student IDs must be in the format STD-001 to STD-100")
     elif not all((df['Score'] >= 0) & (df['Score'] <= 100)):
-        st.error("Scores must be between 0 and 100")
+        st.error("❌ Scores must be between 0 and 100")
     else:
         # --- STEP 2: Segmentation by Color ---
         def segment(score):
@@ -24,21 +26,34 @@ if uploaded_file:
             elif score <= 60:
                 return "Developing", "yellow"
             elif score <= 80:
-                return "Proficient", "blue"
+                return "Proficient", "lightblue"
             else:
-                return "Exemplary", "green"
+                return "Exemplary", "lightgreen"
 
         df["Segment"], df["Color"] = zip(*df["Score"].apply(segment))
 
-        st.subheader("Student Segmentation")
-        st.dataframe(df.style.apply(lambda x: [f"background-color: {c}" for c in df["Color"]], axis=1))
+        st.subheader("🎨 Student Segmentation")
+
+        # Apply row-wise color formatting
+        def highlight_row(row):
+            return [f'background-color: {row["Color"]}'] * len(row)
+
+        styled_df = df.style.apply(highlight_row, axis=1)
+        st.dataframe(styled_df, use_container_width=True)
 
         # --- STEP 3: Mixed Ability Groups ---
-        st.subheader("Mixed Ability Groups")
+        st.subheader("👥 Mixed Ability Groups")
+
+        # Separate students by segment
+        segment_groups = {
+            "Minimal": df[df["Segment"] == "Minimal"]["ID"].tolist(),
+            "Needs Improvement": df[df["Segment"] == "Needs Improvement"]["ID"].tolist(),
+            "Developing": df[df["Segment"] == "Developing"]["ID"].tolist(),
+            "Proficient": df[df["Segment"] == "Proficient"]["ID"].tolist(),
+            "Exemplary": df[df["Segment"] == "Exemplary"]["ID"].tolist()
+        }
 
         groups = []
-        segment_groups = {seg: df[df["Segment"] == seg]["ID"].tolist() for seg in df["Segment"].unique()}
-
         # Make 20 groups
         for i in range(20):
             group = []
@@ -47,9 +62,15 @@ if uploaded_file:
                     group.append(segment_groups[seg].pop(0))
             groups.append(group)
 
-        groups_df = pd.DataFrame(groups, columns=["Red", "Orange", "Yellow", "Blue", "Green"])
-        st.write(groups_df)
+        groups_df = pd.DataFrame(groups, columns=["Red (Minimal)", "Orange (Needs Improvement)", 
+                                                  "Yellow (Developing)", "Blue (Proficient)", 
+                                                  "Green (Exemplary)"])
+        
+        st.dataframe(groups_df, use_container_width=True)
 
         # Download option
         csv = groups_df.to_csv(index=False).encode("utf-8")
-        st.download_button("Download Groups CSV", csv, "mixed_ability_groups.csv", "text/csv")
+        st.download_button("⬇️ Download Groups CSV", csv, "mixed_ability_groups.csv", "text/csv")
+
+else:
+    st.info("👆 Please upload an Excel file with columns: `ID` (STD-001 → STD-100) and `Score` (0–100).")
