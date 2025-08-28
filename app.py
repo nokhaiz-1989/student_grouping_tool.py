@@ -83,6 +83,9 @@ if uploaded_file:
         for cat in categories
     }
 
+    # Track already assigned students
+    assigned_ids = set()
+
     # Find max groups possible
     max_groups = max(len(students) for students in category_groups.values())
 
@@ -91,18 +94,24 @@ if uploaded_file:
         group_members = []
         for cat in categories:
             if i < len(category_groups[cat]):
-                group_members.append(category_groups[cat][i])  # always dict
+                student = category_groups[cat][i]
+                if student[id_col] not in assigned_ids:
+                    group_members.append(student)
+                    assigned_ids.add(student[id_col])
 
         # If group not complete, fill with closest-score students from remaining pool
         if len(group_members) < group_size:
-            used_ids = [m.get(id_col) for m in group_members if isinstance(m, dict)]
-            remaining = df[~df[id_col].isin(used_ids)].sort_values(by="Score", ascending=False)
+            remaining = df[~df[id_col].isin(assigned_ids)].sort_values(by="Score", ascending=False)
             if not remaining.empty:
                 needed = group_size - len(group_members)
                 extra = remaining.iloc[:needed].to_dict("records")
-                group_members.extend(extra)
+                for e in extra:
+                    if e[id_col] not in assigned_ids:
+                        group_members.append(e)
+                        assigned_ids.add(e[id_col])
 
-        groups.append((f"Group {len(groups)+1}", pd.DataFrame(group_members)))
+        if group_members:  # only add non-empty groups
+            groups.append((f"Group {len(groups)+1}", pd.DataFrame(group_members)))
 
     # Display groups
     color_map = {
