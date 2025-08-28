@@ -78,15 +78,26 @@ if uploaded_file:
         group_members = []
         for cat in categories:
             if i < len(category_groups[cat]):
-                group_members.append(category_groups[cat][i])  # already dict now
+                group_members.append(category_groups[cat][i])  # always dict
+
         # If group not complete, fill with closest-score students from remaining pool
         if len(group_members) < group_size:
-            used_ids = [m["Student ID"] for m in group_members]
+            # Ensure group_members are all dicts
+            cleaned_members = []
+            for m in group_members:
+                if isinstance(m, dict):
+                    cleaned_members.append(m)
+                else:  # just in case
+                    cleaned_members.append(m.to_dict())
+            used_ids = [m["Student ID"] for m in cleaned_members]
+
             remaining = df[~df["Student ID"].isin(used_ids)].sort_values(by="Score", ascending=False)
             if not remaining.empty:
-                needed = group_size - len(group_members)
+                needed = group_size - len(cleaned_members)
                 extra = remaining.iloc[:needed].to_dict("records")
-                group_members.extend(extra)
+                cleaned_members.extend(extra)
+            group_members = cleaned_members
+
         groups.append((f"Group {len(groups)+1}", pd.DataFrame(group_members)))
 
     # Display groups
