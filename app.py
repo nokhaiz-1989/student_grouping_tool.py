@@ -48,6 +48,19 @@ def categorize(score):
 if uploaded_file:
     df = pd.read_excel(uploaded_file)
 
+    # Normalize column names
+    df.columns = [c.strip() for c in df.columns]
+
+    # Detect the correct ID column (default to "Student ID")
+    id_col = None
+    for col in df.columns:
+        if col.lower() in ["student id", "id", "sid"]:
+            id_col = col
+            break
+    if not id_col:
+        st.error("❌ Could not find a Student ID column. Please check your Excel file.")
+        st.stop()
+
     # Categorize students
     df[["Category", "Color"]] = df["Score"].apply(lambda s: pd.Series(categorize(s)))
 
@@ -82,21 +95,12 @@ if uploaded_file:
 
         # If group not complete, fill with closest-score students from remaining pool
         if len(group_members) < group_size:
-            # Ensure group_members are all dicts
-            cleaned_members = []
-            for m in group_members:
-                if isinstance(m, dict):
-                    cleaned_members.append(m)
-                else:  # just in case
-                    cleaned_members.append(m.to_dict())
-            used_ids = [m["Student ID"] for m in cleaned_members]
-
-            remaining = df[~df["Student ID"].isin(used_ids)].sort_values(by="Score", ascending=False)
+            used_ids = [m.get(id_col) for m in group_members if isinstance(m, dict)]
+            remaining = df[~df[id_col].isin(used_ids)].sort_values(by="Score", ascending=False)
             if not remaining.empty:
-                needed = group_size - len(cleaned_members)
+                needed = group_size - len(group_members)
                 extra = remaining.iloc[:needed].to_dict("records")
-                cleaned_members.extend(extra)
-            group_members = cleaned_members
+                group_members.extend(extra)
 
         groups.append((f"Group {len(groups)+1}", pd.DataFrame(group_members)))
 
@@ -112,7 +116,7 @@ if uploaded_file:
     for group_name, group_df in groups:
         st.markdown(f"### {group_name}")
 
-        expected_cols = ["Student ID", "Name", "Score", "Category"]
+        expected_cols = [id_col, "Name", "Score", "Category"]
         available_cols = [col for col in expected_cols if col in group_df.columns]
         group_df = group_df[available_cols]
 
