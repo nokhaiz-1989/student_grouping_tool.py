@@ -65,8 +65,10 @@ if uploaded_file:
 
     # Split by category
     categories = df["Category"].unique()
-    category_groups = {cat: df[df["Category"] == cat].sort_values(by="Score", ascending=False).to_dict("records") 
-                       for cat in categories}
+    category_groups = {
+        cat: df[df["Category"] == cat].sort_values(by="Score", ascending=False).to_dict("records")
+        for cat in categories
+    }
 
     # Find max groups possible
     max_groups = max(len(students) for students in category_groups.values())
@@ -76,7 +78,7 @@ if uploaded_file:
         group_members = []
         for cat in categories:
             if i < len(category_groups[cat]):
-                group_members.append(category_groups[cat][i])
+                group_members.append(category_groups[cat][i])  # already dict now
         # If group not complete, fill with closest-score students from remaining pool
         if len(group_members) < group_size:
             used_ids = [m["Student ID"] for m in group_members]
@@ -105,7 +107,10 @@ if uploaded_file:
 
         if "Category" in group_df.columns:
             styled_group = group_df.style.apply(
-                lambda x: [f"background-color: {color_map.get(v, 'white')}; text-align:center;" if x.name == "Category" else "" for v in x],
+                lambda x: [
+                    f"background-color: {color_map.get(v, 'white')}; text-align:center;"
+                    if x.name == "Category" else "" for v in x
+                ],
                 axis=0
             )
         else:
