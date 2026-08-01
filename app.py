@@ -65,7 +65,8 @@ if uploaded_file:
     df[["Category", "Color"]] = df["Score"].apply(lambda s: pd.Series(categorize(s)))
 
     st.subheader("📊 Uploaded Student Data with Categories")
-    styled_df = df.style.apply(lambda _: [f"background-color: {c}; color: white; text-align:center;" for c in df["Color"]], axis=0)
+    display_df = df.drop(columns=["Color"])
+    styled_df = display_df.style.apply(lambda _: [f"background-color: {c}; color: white; text-align:center;" for c in df["Color"]], axis=0)
     st.dataframe(styled_df, use_container_width=True)
 
     # -------------------------------
