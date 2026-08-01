@@ -7,9 +7,14 @@ st.set_page_config(page_title="Student Grouping Tool", layout="wide")
 # -------------------------------
 # University Logo
 # -------------------------------
-col1, col2, col3 = st.columns([1, 2, 1])
+col1, col2 = st.columns([1, 6])
+with col1:
+    st.image("Fast-University-Logo.png", width=80)
 with col2:
-    st.image("Fast-University-Logo.png", width=200)
+    st.markdown(
+        "<h2 style='padding-top: 15px;'>FAST - National University of Computer & Emerging Sciences</h2>",
+        unsafe_allow_html=True
+    )
 
 # -------------------------------
 # Instructions for the interface
