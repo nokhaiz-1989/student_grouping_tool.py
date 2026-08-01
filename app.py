@@ -109,7 +109,7 @@ st.dataframe(styled_df, use_container_width=True)
     # -------------------------------
 st.subheader("👥 Mixed Ability Groups")
 
-    group_size = 5
+group_size = 5
     groups = []
 
     # Split by category
