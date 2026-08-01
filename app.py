@@ -123,7 +123,7 @@ for cat in categories
 }
 
     # Track already assigned students
-    assigned_ids = set()
+assigned_ids = set()
 
     # Find maximum possible groups
     max_groups = max(len(students) for students in category_groups.values())
