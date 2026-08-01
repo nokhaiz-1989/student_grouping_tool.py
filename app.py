@@ -40,15 +40,15 @@ uploaded_file = st.file_uploader("📥 Upload your Excel file", type=["xlsx"])
 # -------------------------------
 def categorize(score):
     if score <= 20:
-        return "Minimal", "red"
+        return "Minimal", "#f8d7da"          # Light Red
     elif score <= 40:
-        return "Needs Improvement", "orange"
+        return "Needs Improvement", "#fde2b8" # Light Orange
     elif score <= 60:
-        return "Developing", "yellow"
+        return "Developing", "#fff3cd"       # Light Yellow
     elif score <= 80:
-        return "Proficient", "blue"
+        return "Proficient", "#dbeafe"       # Light Blue
     else:
-        return "Exemplary", "green"
+        return "Exemplary", "#d1f2d9"        # Light Green
 
 
 if uploaded_file:
