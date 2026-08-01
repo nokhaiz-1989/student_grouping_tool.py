@@ -110,7 +110,7 @@ st.dataframe(styled_df, use_container_width=True)
 st.subheader("👥 Mixed Ability Groups")
 
 group_size = 5
-    groups = []
+groups = []
 
     # Split by category
     categories = df["Category"].unique()
