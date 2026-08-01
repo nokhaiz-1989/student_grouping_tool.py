@@ -40,15 +40,15 @@ uploaded_file = st.file_uploader("📥 Upload your Excel file", type=["xlsx"])
 # -------------------------------
 def categorize(score):
     if score <= 20:
-        return "Minimal", "#f8d7da"          # Light Red
+        return "Minimal", "red"
     elif score <= 40:
-        return "Needs Improvement", "#fde2b8" # Light Orange
+        return "Needs Improvement", "orange"
     elif score <= 60:
-        return "Developing", "#fff3cd"       # Light Yellow
+        return "Developing", "yellow"
     elif score <= 80:
-        return "Proficient", "#dbeafe"       # Light Blue
+        return "Proficient", "blue"
     else:
-        return "Exemplary", "#d1f2d9"        # Light Green
+        return "Exemplary", "green"
 
 
 if uploaded_file:
@@ -84,22 +84,23 @@ if uploaded_file:
         lambda s: pd.Series(categorize(s))
     )
 
-    # -------------------------------
-    # Display Uploaded Data
-    # -------------------------------
-    st.subheader("📊 Uploaded Student Data with Categories")
+# -------------------------------
+# color_map Data
+# -------------------------------
+st.subheader("📊 Uploaded Student Data with Categories")
 
-    display_df = df[[display_col, "Score", "Category"]].copy()
-         
-    colors = df["Color"].tolist()
-         
-    styled_df = display_df.style.apply(
-            lambda _: [
-    f"background-color: {c}; color: white; font-weight: bold; text-align:center;"
-            for c in colors
-            ],
-        axis=0
-      )
+display_df = df[[display_col, "Score", "Category"]].copy()
+
+colors = df["Color"].tolist()
+
+def style_uploaded(row):
+    color = colors[row.name]
+    return [
+        f"background-color:{color}; color:white; font-weight:bold; text-align:center;"
+        for _ in row
+    ]
+
+styled_df = display_df.style.apply(style_uploaded, axis=1)
 
 st.dataframe(styled_df, use_container_width=True)
 
@@ -162,12 +163,12 @@ st.dataframe(styled_df, use_container_width=True)
     # Display Groups
     # -------------------------------
     color_map = {
-        "Minimal": "red",
-        "Needs Improvement": "orange",
-        "Developing": "yellow",
-        "Proficient": "blue",
-        "Exemplary": "green"
-    }
+    "Minimal": "red",
+    "Needs Improvement": "orange",
+    "Developing": "yellow",
+    "Proficient": "blue",
+    "Exemplary": "green"
+}
 
     for group_name, group_df in groups:
         st.markdown(f"### {group_name}")
@@ -176,17 +177,20 @@ st.dataframe(styled_df, use_container_width=True)
         available_cols = [col for col in expected_cols if col in group_df.columns]
         group_df = group_df[available_cols]
 
-        if "Category" in group_df.columns:
-           styled_group = group_df.style.apply(
-    lambda x: [
-        f"background-color: {color_map.get(v, 'white')}; color: white; font-weight: bold; text-align:center;"
-        if x.name == "Category" else ""
-        for v in x
-    ],
-    axis=0
-)
-        else:
-            styled_group = group_df.style
+      if "Category" in group_df.columns:
 
-        st.dataframe(styled_group, use_container_width=True)
+    def style_group(col):
+        if col.name == "Category":
+            return [
+                f"background-color:{color_map.get(v, 'white')}; color:white; font-weight:bold; text-align:center;"
+                for v in col
+            ]
+        return [""] * len(col)
+
+    styled_group = group_df.style.apply(style_group, axis=0)
+
+else:
+    styled_group = group_df.style
+
+st.dataframe(styled_group, use_container_width=True)
         st.markdown("---")
