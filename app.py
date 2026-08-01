@@ -89,20 +89,19 @@ if uploaded_file:
     # -------------------------------
     st.subheader("📊 Uploaded Student Data with Categories")
 
-    display_df = df[[display_col, "Score", "Category", "Color"]].copy()
+         display_df = df[[display_col, "Score", "Category"]].copy()
+         
+         colors = df["Color"].tolist()
+         
+         styled_df = display_df.style.apply(
+             lambda _: [
+                 f"background-color: {c}; color: white; font-weight: bold; text-align:center;"
+                 for c in colors
+             ],
+             axis=0
+         )
 
-    styled_df = display_df.style.apply(
-        lambda _: [
-            f"background-color: {c}; text-align:center;"
-            for c in display_df["Color"]
-        ],
-        axis=0
-    )
-
-    st.dataframe(
-        styled_df.hide(axis="columns", subset=["Color"]),
-        use_container_width=True
-    )
+st.dataframe(styled_df, use_container_width=True)
 
     # -------------------------------
     # Create Mixed Ability Groups
@@ -178,15 +177,14 @@ if uploaded_file:
         group_df = group_df[available_cols]
 
         if "Category" in group_df.columns:
-            styled_group = group_df.style.apply(
-                lambda x: [
-                    f"background-color: {color_map.get(v, 'white')}; text-align:center;"
-                    if x.name == "Category"
-                    else ""
-                    for v in x
-                ],
-                axis=0
-            )
+           styled_group = group_df.style.apply(
+    lambda x: [
+        f"background-color: {color_map.get(v, 'white')}; color: white; font-weight: bold; text-align:center;"
+        if x.name == "Category" else ""
+        for v in x
+    ],
+    axis=0
+)
         else:
             styled_group = group_df.style
 
