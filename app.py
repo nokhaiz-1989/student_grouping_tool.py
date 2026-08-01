@@ -39,7 +39,7 @@ def categorize(score):
     elif score <= 40:
         return "Needs Improvement", "orange"
     elif score <= 60:
-        return "Developing", "yellow"
+        return "Developing", #FFD84F
     elif score <= 80:
         return "Proficient", "blue"
     else:
@@ -86,7 +86,7 @@ if uploaded_file:
     # Track already assigned students
     assigned_ids = set()
 
-    # Find max groups possible
+    # Find max groups possibley
     max_groups = max(len(students) for students in category_groups.values())
 
     # Build groups round-robin: try to take one student from each category
@@ -117,7 +117,7 @@ if uploaded_file:
     color_map = {
         "Minimal": "red",
         "Needs Improvement": "orange",
-        "Developing": "yellow",
+        "Developing": #FFD84F,
         "Proficient": "blue",
         "Exemplary": "green"
     }
