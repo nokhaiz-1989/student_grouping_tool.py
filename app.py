@@ -39,7 +39,7 @@ def categorize(score):
     elif score <= 40:
         return "Needs Improvement", "orange"
     elif score <= 60:
-        return "Developing", #FFD84F
+        return "Developing", "#FFD84F"
     elif score <= 80:
         return "Proficient", "blue"
     else:
@@ -117,7 +117,7 @@ if uploaded_file:
     color_map = {
         "Minimal": "red",
         "Needs Improvement": "orange",
-        "Developing": #FFD84F,
+        "Developing": "#FFD84F",
         "Proficient": "blue",
         "Exemplary": "green"
     }
