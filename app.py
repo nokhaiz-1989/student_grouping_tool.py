@@ -113,14 +113,14 @@ group_size = 5
 groups = []
 
     # Split by category
-    categories = df["Category"].unique()
+categories = df["Category"].unique()
 
-    category_groups = {
-        cat: df[df["Category"] == cat]
-        .sort_values(by="Score", ascending=False)
-        .to_dict("records")
-        for cat in categories
-    }
+category_groups = {
+cat: df[df["Category"] == cat]
+.sort_values(by="Score", ascending=False)
+.to_dict("records")
+for cat in categories
+}
 
     # Track already assigned students
     assigned_ids = set()
