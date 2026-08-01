@@ -107,7 +107,7 @@ st.dataframe(styled_df, use_container_width=True)
     # -------------------------------
     # Create Mixed Ability Groups
     # -------------------------------
-    st.subheader("👥 Mixed Ability Groups")
+st.subheader("👥 Mixed Ability Groups")
 
     group_size = 5
     groups = []
