@@ -89,17 +89,17 @@ if uploaded_file:
     # -------------------------------
     st.subheader("📊 Uploaded Student Data with Categories")
 
-         display_df = df[[display_col, "Score", "Category"]].copy()
+    display_df = df[[display_col, "Score", "Category"]].copy()
          
-         colors = df["Color"].tolist()
+    colors = df["Color"].tolist()
          
-         styled_df = display_df.style.apply(
-             lambda _: [
-                 f"background-color: {c}; color: white; font-weight: bold; text-align:center;"
-                 for c in colors
-             ],
-             axis=0
-         )
+    styled_df = display_df.style.apply(
+            lambda _: [
+    f"background-color: {c}; color: white; font-weight: bold; text-align:center;"
+            for c in colors
+            ],
+        axis=0
+      )
 
 st.dataframe(styled_df, use_container_width=True)
 
